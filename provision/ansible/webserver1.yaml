@@ -1,35 +1,30 @@
 ---
-- hosts: all
+- name: Configuração básica do webserver1
+  hosts: webserver1
   become: yes
   become_user: root
   become_method: sudo
+  vars_files:
+    - vars/hosts.yaml
+  roles:
+    - no-ipv6
   tasks:
     - name: Garantindo /etc/hosts
       lineinfile:
         path: /etc/hosts
         line: "{{ item }}"
-      with_items:
-        - 172.16.0.199 ansible
-        - 172.16.0.200 balancer
-        - 172.16.0.201 webserver1
-        - 172.16.0.202 webserver2
-        - 172.16.0.203 dbserver
-        - 172.16.0.204 winclient
+      loop: '{{ linux_hosts_file }}'
+
+    - name: Adiciona o usuário suporte
+      ansible.builtin.import_tasks:
+        file: common_user.yaml
 
     - name: Ajustando /etc/hosts
       lineinfile:
         path: /etc/hosts
-        line: "127.0.1.1	webserver1	webserver1"
+        line: 127.0.1.1 webserver1
         state: absent
-
-    - name: Configura o servidor SSH para permitir conexao por senha
-      ansible.builtin.replace:
-        path: /etc/ssh/sshd_config
-        regexp: '#PermitRootLogin prohibit-password'
-        replace: 'PermitRootLogin yes'
- 
-    - name: Reinicia o SSH
-      service:
-        name: sshd
-        daemon_reload: yes
-        state: restarted
+  handlers:
+    - name: 'Reload firewall rules'
+      ansible.builtin.command:
+        cmd: firewall-cmd --reload
